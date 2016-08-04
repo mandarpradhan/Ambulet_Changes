@@ -1,0 +1,713 @@
+#include "vrms.h"
+
+pthread_t rtsp_ltor_thread, rtsp_rtol_thread, rtp_ltor_thread, rtp_rtol_thread, rtcp_ltor_thread, rtcp_rtol_thread, rtsp_reconnect;
+extern int real_network_view;
+char rtsp_options[512], rtsp_describe[512], rtsp_setup[512], rtsp_play[512], rtsp_first_session_id[9], 
+	rtsp_new_session_id[9], rtsp_getparam[512],rtsp_teardown[512];
+extern char new_IPaddr[128];
+int state;
+
+/*All the ports.*/
+unsigned short vlc_rtp, vlc_rtcp, remote_rtp, remote_rtcp, vrms_local_rtcp, vrms_local_rtp, vrms_remote_rtp, vrms_remote_rtcp;
+/*All the sockets*/
+int vlc_connsock, vlc_serversock_new, vlc_serversock, rtcp_remote_sockfd, rtcp_local_sockfd, rtp_remote_sockfd, rtp_local_sockfd;
+
+void *
+rtsp_vlc ()
+{
+
+  struct sockaddr_in servaddr;
+  int optval = 1, ret, vlc_listen, vlc_sockfd;
+  /* Waiting for n/w info from SeaMo */
+  printf("RTSP-UDP is waiting for network information from SeaMo\n");
+
+  while (1){
+
+      if (!real_network_view)
+	{
+	  sleep (1);
+	  continue;
+	}
+      break;
+  }
+
+  vlc_sockfd = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (vlc_sockfd <= INVALID_SOCK)
+    {
+      perror ("sock error: open in vlc \n");
+    }
+
+  setsockopt (vlc_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (optval));
+  bzero (&servaddr, sizeof (servaddr));
+  servaddr.sin_family = AF_INET;
+  servaddr.sin_addr.s_addr = inet_addr ("127.0.0.1");
+  servaddr.sin_port = htons (554);
+
+  ret = bind (vlc_sockfd, (struct sockaddr *) &servaddr, sizeof (servaddr));
+  if (ret < 0)
+    {
+      perror (" Bind failed in rtsp_vlc start \n");
+    }
+  vlc_listen = listen (vlc_sockfd, LISTEN_QUEUE);
+  if (vlc_listen < 0)
+    {
+      printf (" rtsp_vlc: listen failed errno = %d ", errno);
+    }
+
+  while (1)
+    {
+
+      printf("RTSP-UDP Started.... Waiting for connection\n");
+      vlc_connsock = accept (vlc_sockfd, (struct sockaddr *) NULL, (socklen_t *) NULL);
+      if (vlc_connsock < 0){
+	  perror ("RTSP-UDP accept error:...\n");
+      }
+
+      printf (" RTSP-UDP::  Client Connection is received ...\n");
+
+      vlc_serversock = vlc_server_conn ();
+      if(vlc_serversock_new < 0){
+	   printf("Reconnect: Could not establish new connection\n");
+      }   
+
+      state = ACTIVE;
+
+      if (pthread_create (&rtsp_ltor_thread, NULL, rtsp_ltor, &vlc_connsock)){
+	  printf (" error creating localvlc thread \n");
+	  abort ();
+      }
+
+      if (pthread_create (&rtsp_rtol_thread, NULL, rtsp_rtol, &vlc_serversock)){
+	  printf (" Error creating vlc_server thread \n");
+	  abort ();
+      }
+       //stop_streaming("garbage");
+      pthread_join (rtsp_ltor_thread, 0);
+
+    }
+}
+
+int vlc_server_conn()
+{
+	int server_cfd, optval = 1;
+	struct sockaddr_in rem_addr, ip_addr;
+
+	bzero(&rem_addr, sizeof(rem_addr));
+	rem_addr.sin_family = AF_INET;
+	rem_addr.sin_addr.s_addr = inet_addr("202.141.1.20");
+	rem_addr.sin_port = htons(554);
+
+	bzero(&ip_addr, sizeof(ip_addr));
+	ip_addr.sin_family = AF_INET;
+	ip_addr.sin_addr.s_addr = inet_addr(new_IPaddr);
+	printf("the new socket is binding to %s\n", new_IPaddr);
+
+	server_cfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	setsockopt(server_cfd, SOL_SOCKET, SO_REUSEADDR, &optval,
+		   sizeof(optval));
+	if (server_cfd <= INVALID_SOCK) {
+		printf("video server : sock errno = %d \n", errno);
+	}
+
+	if (bind(server_cfd, (struct sockaddr *)&ip_addr, sizeof(ip_addr)) < 0) {
+		perror("bind to current ipinterface failed! \n");
+	}
+
+	printf("Connecting to remote video server...\n");
+
+	if (connect(server_cfd, (struct sockaddr *)&rem_addr, sizeof(rem_addr))
+	    < 0) {
+		perror("remote vlc server connect error.. \n");
+		vlc_server_conn();
+		return -1;
+	}
+	printf(" remote vlc server connection done = %d sfd \n", server_cfd);
+
+	return server_cfd;
+}
+
+/* @param thread to receive data from local vsa
+ * sending to remote server 
+ *
+ *
+ */
+void *
+rtsp_ltor ()
+{
+  int right_send_len = 0;
+  int local_recv_len = 0;
+  char buf[PKT_BUFSIZ];
+
+  while (1)
+    {
+//      printf ("In localvlc waiting to receive\n");
+      local_recv_len = recv (vlc_connsock, buf, PKT_BUFSIZ, 0);
+      if(local_recv_len < 0){
+		perror("rtsp_ltor recv:");
+      }
+
+      printf("rtsp_ltor : \n %s\n",buf);
+
+      if (!strncasecmp (buf, "setup", 5)) {
+	      save_replace_local_ports (buf);
+      }
+      store_handshake(buf, local_recv_len); 
+
+      right_send_len = send (vlc_serversock, buf, local_recv_len, 0);
+       if (right_send_len <= INVALID_LEN) {
+	      close (vlc_serversock);
+	      perror (" send failed in localvlc:\n");
+	      printf
+		(" failed in localvlc & vlc_serverSock = %d\n errno = %d",
+		 vlc_serversock, errno);
+	      continue;
+      }
+
+      if (!strncasecmp (buf, "TEARDOWN", 8)) {
+	      stop_streaming (buf);
+      }
+	  //  }
+      bzero(buf, sizeof(buf));
+	}
+
+}
+/*
+ *
+ *
+ *
+ */
+  void *rtsp_rtol ()
+  {
+    char buf[PKT_BUFSIZ];
+    int server_send_len = 0, server_receive_len = 0;
+    int my_vlc_network_view = 0;
+
+    my_vlc_network_view = real_network_view;
+    while (1)
+      {
+	/* If vnc n/w view is not equal real n/w view then enable busy flag 
+	 * and establish a new connection 
+	 */
+	if (my_vlc_network_view != real_network_view) {
+            if (pthread_create (&rtsp_reconnect, NULL, (void *) reconnect, NULL)) {
+			printf (" Error while creating realtime video thread:- \n");
+			// abort();
+	    }
+	    my_vlc_network_view = real_network_view;
+	}
+	printf("my_nw_view %d real_nw_view %d\n", my_vlc_network_view, real_network_view);	
+	server_receive_len = recv (vlc_serversock, buf, PKT_BUFSIZ, 0);
+	if (server_receive_len <= 0) {
+	    close (vlc_serversock);
+	    perror ("recv error in vlcserver..\n");
+	    printf
+	      (" recv fd vlcserver : vlc_server : %d\n",
+	       vlc_serversock);
+	    continue;
+	}
+	
+	save_replace_remote_ports(buf);
+
+	if(strstr(buf, "Session") != NULL){
+		if( strlen(rtsp_first_session_id) != 0){
+		replace_first_session_id(buf);
+		}
+	}
+
+	printf ("server ::\n%s\n", buf);
+	if (state == BLOCK) {
+	    continue;
+	}
+
+	server_send_len = send (vlc_connsock, buf, server_receive_len, 0);
+	if (server_send_len < 0) {
+	    perror ("send error in vlcserver..\n");
+	    printf ("vlcserver : vlc_server : %d\n", vlc_serversock);
+	}
+	//  printf(" From Right side fd : %d sent to Left & pkt len = %d \n", vnc_serverSock, server_receive_len);
+
+//        }
+      }
+  }
+
+void save_replace_local_ports (char buf[]){
+
+	char *tmp, buf_port[256];
+
+	bzero(buf_port,sizeof(buf_port));
+	tmp = strstr(buf, "client_port");
+	
+	if(tmp){
+  		sscanf (tmp, "client_port=%hu-%hu", &vlc_rtp, &vlc_rtcp);
+
+		vrms_local_rtp = vlc_rtp + 100;
+		vrms_local_rtcp = vlc_rtcp + 100;
+		tmp = tmp + 12;
+		sprintf(buf_port,"%d-%d", vrms_local_rtp, vrms_local_rtcp);
+
+		memcpy(tmp, buf_port, strlen(buf_port));
+		printf("local ports changed \n");
+	}
+}
+
+
+void save_replace_remote_ports (char buf[]){
+
+	char *tmp, buf_port [256];
+
+	bzero(buf_port,sizeof(buf_port));
+	tmp = strstr(buf, "server_port");
+	
+	if(tmp){
+  		sscanf (tmp, "server_port=%hu-%hu", &remote_rtp, &remote_rtcp);
+
+		vrms_remote_rtp = remote_rtp + 100;
+		vrms_remote_rtcp = remote_rtcp + 100;
+
+		tmp = strstr(buf, "client_port");
+		sprintf(buf_port,"client_port=%d-%d;server_port=%d-%d", vlc_rtp, vlc_rtcp, vrms_remote_rtp, vrms_remote_rtcp);
+
+
+		memcpy(tmp, buf_port, strlen(buf_port));
+		printf("remote and local ports changed :)\n");
+
+		udp_sockets_init();
+	
+   		if (pthread_create (&rtp_ltor_thread, NULL, rtp_ltor_conn, NULL)){
+      			printf (" error creating rtcp_ltor_thread thread \n");
+      			abort ();
+    		}
+
+   		if (pthread_create (&rtp_rtol_thread, NULL, rtp_rtol_conn, NULL)){
+      			printf (" error creating rtcp_ltor_thread thread \n");
+      			abort ();
+    		}
+
+   		if (pthread_create (&rtcp_ltor_thread, NULL, rtcp_ltor_conn, NULL)){
+      			printf (" error creating rtcp_ltor_thread thread \n");
+      			abort ();
+    		}
+
+   		if (pthread_create (&rtcp_rtol_thread, NULL, rtcp_rtol_conn, NULL)){
+      			printf (" error creating rtcp_ltor_thread thread \n");
+      			abort ();
+    		}
+
+	}
+}
+
+void stop_streaming ()
+{
+  printf ("Killing all the threads\n");
+  close (vlc_serversock);
+  close (rtcp_remote_sockfd);
+  close (rtcp_local_sockfd);
+  close (rtp_remote_sockfd);
+  close (rtp_local_sockfd);
+
+  /*Clear all the global variables*/
+  bzero(rtsp_first_session_id, sizeof(rtsp_first_session_id));
+  bzero(rtsp_new_session_id, sizeof(rtsp_new_session_id));
+
+  pthread_cancel (rtsp_ltor_thread);
+  pthread_cancel (rtsp_rtol_thread);
+  pthread_cancel (rtcp_ltor_thread);
+  pthread_cancel (rtcp_rtol_thread);
+  pthread_cancel (rtp_ltor_thread);
+  pthread_cancel (rtp_rtol_thread);
+//  pthread_cancel (rtcp_ltor_thread);
+
+}
+
+void *rtcp_rtol_conn ()
+{
+
+  int iresult;
+  struct sockaddr_in vlc_rtcp_addr, src_addr;
+  unsigned char recvd_pkt[PKT_BUFSIZ];
+  socklen_t src_addr_len = sizeof (struct sockaddr_in);
+
+  bzero (&vlc_rtcp_addr, sizeof (struct sockaddr_in));
+  vlc_rtcp_addr.sin_family = AF_INET;
+  vlc_rtcp_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  vlc_rtcp_addr.sin_port = htons (vlc_rtcp);	//htons(*port);
+
+  while (1)
+    {
+      iresult =	recvfrom (rtcp_remote_sockfd, recvd_pkt, PKT_BUFSIZ, 0,
+		  (struct sockaddr *) &src_addr, &src_addr_len);
+      if (iresult == -1)
+	{
+		  //printf("RCTP recvfrom failed: %s\n", strerror(errno));
+	  perror ("RTCP recvfrom");
+	}
+      printf ("Received RTCP packet");
+
+      iresult =	sendto (rtcp_local_sockfd, recvd_pkt,iresult, 0,
+		(struct sockaddr *)&vlc_rtcp_addr, sizeof (struct sockaddr_in));
+      if (iresult <= 0)
+	{
+	  //printf("RCTP sendto failed: %s\n", strerror(errno));
+	  perror ("RTCP sendto");
+	}
+      printf ("Sent RTCP packet\n");
+    }
+}
+
+void *rtcp_ltor_conn ()
+{
+
+  int iresult;
+  struct sockaddr_in remote_rtcp_addr, src_addr;
+  unsigned char recvd_pkt[PKT_BUFSIZ];
+  socklen_t src_addr_len = sizeof (struct sockaddr_in);
+
+  bzero (&remote_rtcp_addr, sizeof (struct sockaddr_in));
+  remote_rtcp_addr.sin_family = AF_INET;
+  remote_rtcp_addr.sin_addr.s_addr = inet_addr ("202.141.1.20");
+  remote_rtcp_addr.sin_port = htons (remote_rtcp);	//htons(*myport);
+
+  while (1)
+    {
+      iresult =	recvfrom (rtcp_local_sockfd, recvd_pkt, PKT_BUFSIZ, 0,
+		  (struct sockaddr *) &src_addr, &src_addr_len);
+      if (iresult == -1)
+	{
+		  //printf("RCTP recvfrom failed: %s\n", strerror(errno));
+	  perror ("RTCP recvfrom");
+	}
+      printf ("Received RTCP packet");
+
+      iresult =	sendto (rtcp_remote_sockfd, recvd_pkt,iresult, 0,
+		(struct sockaddr *)&remote_rtcp_addr, sizeof (struct sockaddr_in));
+      if (iresult <= 0)
+	{
+	  //printf("RCTP sendto failed: %s\n", strerror(errno));
+	  perror ("RTCP sendto");
+	}
+      printf ("Sent RTCP packet\n");
+    }
+}
+
+void *rtp_ltor_conn ()
+{
+
+  int iresult;
+  struct sockaddr_in remote_rtp_addr, src_addr;
+  unsigned char recvd_pkt[PKT_BUFSIZ];
+  socklen_t src_addr_len = sizeof (struct sockaddr_in);
+
+  bzero (&remote_rtp_addr, sizeof (struct sockaddr_in));
+  remote_rtp_addr.sin_family = AF_INET;
+  remote_rtp_addr.sin_addr.s_addr = inet_addr ("127.0.0.1");
+  remote_rtp_addr.sin_port = htons (vlc_rtp);	//htons(*myport);
+
+  while (1)
+    {
+      iresult =	recvfrom (rtp_local_sockfd, recvd_pkt, PKT_BUFSIZ, 0,
+		  (struct sockaddr *) &src_addr, &src_addr_len);
+      if (iresult == -1)
+	{
+		  //printf("RCTP recvfrom failed: %s\n", strerror(errno));
+	  perror ("RTP recvfrom");
+	}
+
+      iresult =	sendto (rtp_remote_sockfd, recvd_pkt,iresult, 0,
+		(struct sockaddr *)&remote_rtp_addr, sizeof (struct sockaddr_in));
+      if (iresult <= 0)
+	{
+	  //printf("RCTP sendto failed: %s\n", strerror(errno));
+	  perror ("RTCP sendto");
+	}
+//      printf ("Sent RTP  rtol packet\n");
+    }
+}
+
+void *rtp_rtol_conn ()
+{
+
+  int iresult;
+  struct sockaddr_in vlc_rtp_addr, src_addr;
+  unsigned char recvd_pkt[PKT_BUFSIZ];
+  socklen_t src_addr_len = sizeof (struct sockaddr_in);
+
+  bzero (&vlc_rtp_addr, sizeof (struct sockaddr_in));
+  vlc_rtp_addr.sin_family = AF_INET;
+  vlc_rtp_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  vlc_rtp_addr.sin_port = htons (vlc_rtp);	//htons(*port);
+
+  while (1)
+    {
+      iresult =	recvfrom (rtp_remote_sockfd, recvd_pkt, PKT_BUFSIZ, 0,
+		  (struct sockaddr *) &src_addr, &src_addr_len);
+      if (iresult == -1)
+	{
+		  //printf("RCTP recvfrom failed: %s\n", strerror(errno));
+	  perror ("RTCP recvfrom");
+	}
+      printf ("Received RTP packet");
+
+      iresult =	sendto (rtp_local_sockfd, recvd_pkt,iresult, 0,
+		(struct sockaddr *)&vlc_rtp_addr, sizeof (struct sockaddr_in));
+      if (iresult <= 0)
+	{
+	  //printf("RCTP sendto failed: %s\n", strerror(errno));
+	  perror ("RTP sendto");
+	}
+      printf ("Sent RTP packet\n");
+    }
+}
+
+void store_handshake (char packet[], int len){
+
+  if (!strncasecmp (packet, "options", 7)) {
+      memset (rtsp_options, 0, sizeof (rtsp_options));
+      memcpy (rtsp_options, packet, len);
+      return;
+    }
+  if (!strncasecmp (packet, "describe", 8)) {
+      memset (rtsp_describe, 0, sizeof (rtsp_describe));
+      memcpy (rtsp_describe, packet, len);
+      return;
+    }
+  if (!strncasecmp (packet, "setup", 5)) {
+      memset (rtsp_setup, 0, sizeof (rtsp_setup));
+      memcpy (rtsp_setup, packet, len);
+      return;
+    }
+  if (!strncasecmp (packet, "play", 4)) {
+      memset (rtsp_play, 0, sizeof (rtsp_play));
+      memcpy (rtsp_play, packet, len);
+      save_first_session_id(rtsp_play);	
+      return;
+    }
+  if(!strncasecmp (packet, "get_parameter", 13)){
+      memset (rtsp_getparam, 0, sizeof (rtsp_play));
+      memcpy (rtsp_getparam, packet, len);
+      return;
+  }
+
+}
+
+void reconnect ()
+{
+
+  char buf[PKT_BUFSIZ];
+  int right_send_len, right_recv_len;
+
+  vlc_serversock_new = vlc_server_conn ();
+  if(vlc_serversock_new < 0){
+	printf("Reconnect: Could not establish new connection\n");
+  }
+  state = BLOCK;
+  printf
+    ("second connection to video server established!!! %d-newsock",
+     vlc_serversock_new);
+
+  right_send_len =
+  send (vlc_serversock_new, rtsp_options, strlen (rtsp_options), 0);
+  if (right_send_len < 0)
+    {
+      perror ("send options failed");
+    }
+  printf ("options packet send\n");
+
+  right_recv_len = recv (vlc_serversock_new, buf, PKT_BUFSIZ, 0);
+  if (right_recv_len < 0)
+    {
+      perror ("recv options ack failed");
+    }
+
+  right_send_len =
+  send (vlc_serversock_new, rtsp_describe,
+  strlen (rtsp_describe), 0);
+  if (right_send_len < 0)
+    {
+      perror ("send describe failed");
+    }
+  printf ("describe packet send\n");
+
+  right_recv_len = recv (vlc_serversock_new, buf, PKT_BUFSIZ, 0);
+  if (right_recv_len < 0)
+    {
+      perror ("recv describe ack failed");
+    }
+
+  right_send_len =
+    send (vlc_serversock_new, rtsp_setup, strlen (rtsp_setup), 0);
+  if (right_send_len < 0)
+    {
+      perror ("send setup failed");
+    }
+  printf ("setup packet send\n");
+
+  right_recv_len = recv (vlc_serversock_new, buf, PKT_BUFSIZ, 0);
+  if (right_recv_len < 0)
+    {
+      perror ("recv setup ack failed");
+    }
+	
+  send_teardown();
+  save_new_session_id(buf);	
+  replace_new_session_id(rtsp_play);
+
+  printf("play packet being sent : %s\n",rtsp_play);
+  right_send_len =
+    send (vlc_serversock_new, rtsp_play, strlen (rtsp_play), 0);
+  if (right_send_len < 0)
+    {
+      perror ("send play failed");
+    }
+  printf ("play packet send\n");
+
+  right_recv_len = recv (vlc_serversock_new, buf, PKT_BUFSIZ, 0);
+  if (right_recv_len < 0)
+    {
+      perror ("recv play ack failed");
+    }
+
+  state = 0;
+}
+
+void save_first_session_id(char reply[]){
+
+	char *tmp; 
+
+	tmp = strstr(reply, "Session");
+	if(tmp){
+  		tmp = tmp+9;    
+
+		memcpy(rtsp_first_session_id, tmp, 8);
+		printf("!!!!!!!!!!First Session ID =%s\n",rtsp_first_session_id);
+
+  		construct_teardown( rtsp_first_session_id );
+      	}
+}
+
+void save_new_session_id(char reply[]){
+
+	char *tmp; 
+
+	tmp = strstr(reply, "Session");
+	if(tmp){
+  	       tmp = tmp+9;    
+
+	       memcpy(rtsp_new_session_id, tmp, 8);
+	       printf("!!!!!!!!!!!!!!New Session ID =%s\n",rtsp_new_session_id);
+
+  	       construct_teardown( rtsp_new_session_id );
+      	}
+}
+
+void replace_first_session_id(char change_pkt[]){
+
+        char *tmp;
+
+        tmp = strstr(change_pkt, "Session");
+
+	if(tmp){
+		tmp = tmp + 9;
+
+		memcpy(tmp, rtsp_first_session_id, 8);
+	}
+}
+
+void replace_new_session_id(char change_pkt[]){
+
+        char *tmp;
+
+        tmp = strstr(change_pkt, "Session");
+
+	if(tmp){
+		tmp = tmp + 9;
+
+		memcpy(tmp, rtsp_new_session_id, 8);
+	}
+}
+
+void udp_sockets_init(){
+
+  struct sockaddr_in rtcp_remote_addr, rtcp_local_addr, rtp_remote_addr, rtp_local_addr;
+  
+  bzero (&rtcp_remote_addr, sizeof (struct sockaddr_in));
+  rtcp_remote_addr.sin_family = AF_INET;
+  rtcp_remote_addr.sin_addr.s_addr = INADDR_ANY;//inet_addr ("202.141.1.20");
+  rtcp_remote_addr.sin_port = htons (vrms_remote_rtcp);	//htons(*myport);
+
+  bzero (&rtcp_local_addr, sizeof (struct sockaddr_in));
+  rtcp_local_addr.sin_family = AF_INET;
+  rtcp_local_addr.sin_addr.s_addr = INADDR_ANY;//inet_addr ("202.141.1.20");
+  rtcp_local_addr.sin_port = htons (vrms_local_rtcp);	//htons(*myport);
+
+  bzero (&rtp_remote_addr, sizeof (struct sockaddr_in));
+  rtp_remote_addr.sin_family = AF_INET;
+  rtp_remote_addr.sin_addr.s_addr = INADDR_ANY;//inet_addr ("202.141.1.20");
+  rtp_remote_addr.sin_port = htons (vrms_remote_rtp);	//htons(*myport);
+
+  bzero (&rtp_local_addr, sizeof (struct sockaddr_in));
+  rtp_local_addr.sin_family = AF_INET;
+  rtp_local_addr.sin_addr.s_addr = INADDR_ANY;//inet_addr ("202.141.1.20");
+  rtp_local_addr.sin_port = htons (vrms_local_rtp);	//htons(*myport);
+
+  rtcp_remote_sockfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (rtcp_remote_sockfd < 0) {
+      perror ("rtcp_remote_sockfd creation failed");
+      exit (1);
+  }
+
+  if (bind(rtcp_remote_sockfd, (struct sockaddr *) &rtcp_remote_addr,
+       sizeof (struct sockaddr)) < 0) {
+      perror ("rtcp_remote_sockfd bind to RTCP remote_addr failed");
+      exit (1);
+  }
+
+  rtcp_local_sockfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (rtcp_local_sockfd == -1) {
+      printf ("rtcp_local_sockfd creation failed: %s\n", strerror (errno));
+  }
+
+  if (bind(rtcp_local_sockfd, (struct sockaddr *) &rtcp_local_addr,
+       sizeof (struct sockaddr)) < 0) {
+      perror ("rtcp_local_sockfd bind to RTCP local_addr failed");
+      exit (1);
+  }
+
+  rtp_local_sockfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (rtp_local_sockfd == -1) {
+      printf ("rtp_remote_sockfd creation failed:: %s\n", strerror (errno));
+  }
+
+  if (bind(rtp_local_sockfd, (struct sockaddr *) &rtp_local_addr,
+       sizeof (struct sockaddr)) < 0) {
+      perror ("rtp_remote_sockfd bind to RTP remote_addr failed");
+      exit (1);
+  }
+
+  rtp_remote_sockfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (rtp_remote_sockfd == -1) {
+      printf ("rtp_local_sockfd creation failed: %s\n", strerror (errno));
+  }
+
+  if (bind(rtp_remote_sockfd, (struct sockaddr *) &rtp_remote_addr,
+       sizeof (struct sockaddr)) < 0) {
+      perror ("rtp_local_sockfd bind to RTP local_addr failed");
+      exit (1);
+  }
+
+}
+
+void construct_teardown( char session_id[]){
+
+sprintf(rtsp_teardown, "TEARDOWN rtsp://127.0.0.1:554/mpeg4/media.amp/ RTSP/1.0\r\nCSeq: 1579\r\nUser-Agent: LibVLC/2.0.9 (LIVE555 Streaming Media v2012.10.18)\r\nSession: %s\r\n\r\n",session_id);
+
+}
+
+void send_teardown(){
+
+  printf("rtsp_teardown:: %s\n",rtsp_teardown);
+  int send_len = send (vlc_serversock, rtsp_teardown, strlen(rtsp_teardown), 0);
+  if(send_len < 0 ){
+	perror("stop streaming send failed");
+  }
+
+}

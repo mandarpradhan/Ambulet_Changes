@@ -1,0 +1,70 @@
+      
+      SeaMo: A VHO implementation for seamless mobility across HWNs
+      -------------------------------------------------------------
+
+SYSTEM REQUIREMENTS
+-------------------
+1. Fedora 12-14, and Ubuntu-11.04 Linux distributions
+2. USB dongle to access 3G network (Tested with HUAWEI, 
+   HSPA USB Stick, Model:E1750)
+
+
+IMPORTANT_NOTE:
+--------------
+Plug in your 3G dongle. If NetworkManger could not detect your 3G device 
+(dongle) then DO NOT proceed further. SeaMo heavily depends on NetworkManager 
+daemon and its lingo. 
+
+To configure your 3G device read HOWTO_CONFIGURE_3G_DEVICE in config folder.
+
+
+INSTALLATION STEPS
+------------------
+
+Step 1: Build the SeaMo source code
+
+        > sh build.sh
+
+Step 2: Run the script install.sh as root
+
+        # sh install.sh
+	The install script installs the SeaMo binaries and configuration files
+        in /usr/local/seamo 
+
+Step 3: Edit the configuration file in /usr/local/seamo/conf/seamo.conf
+
+Step 4: Connect to any available network through NetworkManager 
+
+Step 5: Start the seamo daemon as root
+
+        # service seamod start
+
+Congratulations!!!
+You have successfully started SeaMo. 
+
+SeaMo LOGS
+----------
+- You can see the logs and other information in /var/log/messages.
+- You can increase the debug level by enabling them in 
+  corresponding header files to see more debug information.
+ 
+ADVANCED CONFIGURATION for seamless mobility using HIP/MIPv6 
+------------------------------------------------------------
+
+SeaMo hands over automatically to the best network available but does
+not ensure application level session continuity during the hand overs.
+
+For seamless mobility, in addition to SeaMo, one needs the support of mobility
+protocols such as HIP/MIPv6
+
+Read Step 6 below for setting up HIP.
+
+Step 6: In order to maintain the session and experience seamless handovers
+        install any mobility protocol that supports vertical handovers.
+        We have tested with Host Identity Protocol (HIP), InfraHIP. 
+        For more information check this link
+
+        http://infrahip.hiit.fi/
+
+Now you are set to move across 3G and WLAN networks and use SeaMo to experience
+seamless mobility        

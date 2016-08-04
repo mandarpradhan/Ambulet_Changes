@@ -1,0 +1,23 @@
+CONFIGURING 3G device
+---------------------
+
+If NetworkManager does not detect your 3G device then try
+any of the following steps.
+
+1. Execute run-me.sh in devices folder. 
+   If this does not help the NetworkManager 
+   detect 3G device then try the second option.
+
+2. Copy the file 20-custom-huawei.rules which is in
+   devices folder into /etc/udev/rules.d
+
+   If both of the options did not help you, then we are
+   sorry we cannot help you in detecting your 3G device.
+   Try it yourself.
+
+If your using the 3G device for the first time then configure
+your 3G device as follows:
+
+1. Right click on NetworkManager > Edit Connections > Mobile Broadband > Add
+2. Follow the steps on the new window.
+3. Make sure that the connection name has no spaces

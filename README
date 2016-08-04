@@ -1,0 +1,32 @@
+      SeaMo+: A VHO implementation for seamless mobility across HWNs
+      -------------------------------------------------------------
+
+     This package contains a system which allows vertical handovers
+across various heterogeneous networks. SeaMo will select the best network
+at any given point of time, thereby allowing the user to always remain
+connected. SeaMo currently works for 3G and WLAN networks.
+
+Follow the steps in INSTALL file to start using SeaMo.
+
+For any further clarifications you can mail us at
+seamo@ece.iisc.ernet.in
+
+Terms of Use
+-----------
+As part of this package, code copyright of Jean Tourrilhes <jt@hpl.hp.com>
+and distributed under the GPL and LGPL is included along with the 
+original copyright headers.
+
+SeaMo, version 0.1, 2011, is under the copyright of the authors mentioned 
+below affiliated to the ECE Department, IISc, Bangalore & Department of IT, 
+MCIT, Government of India.
+
+      
+Authors: Seema K   <seema at eis.iisc.ernet.in>
+         Anand SVR <anand at eis.iisc.ernet.in>
+      
+The code distributed along with this package comes with no warranty and
+is released under the GPLv3 License. 
+
+See the file "license.terms" for information on usage and redistribution
+of this package.     

@@ -1,0 +1,603 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.text.DecimalFormat;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiManager;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.telephony.PhoneStateListener;
+import android.telephony.SignalStrength;
+import android.telephony.TelephonyManager;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+public class SeaMo_AndroidActivity extends Activity{ 
+	static TextView            textStatus;
+	Button                     startb, stopb;
+	TimerTask                  task, task1;
+	public Handler             handler = new Handler();	
+	NetworkInfo                activeNetwork;
+	int                        networkType;
+	ConnectivityManager        connectivity;
+	WifiManager                wifiService;	
+	TelephonyManager           telService;
+	String                     network, apn;
+	int                        signal = 0, ber = 0, modules = 1;
+	BroadcastReceiver          receiver;
+	
+	static ReadWriteLock       lock = new ReentrantReadWriteLock();
+	static final Lock          read = lock.readLock();
+	static final Lock          write = lock.writeLock();
+		  
+	int                        ap  = 0, dataCount = 0, noOfNetworks = 0; 
+	Timer                      t = new Timer();
+	wifiinfo []                tempWifi =  new wifiinfo[10];
+	threeginfo                 data3g = new threeginfo(), temp3g = new threeginfo();
+	Wifi                       wifi = new Wifi();
+	Threeg                     threeg = new Threeg();
+	int                        handingOver = 0;
+	public static final String PREFS_NAME_WIFI = "SeaMo.wifiData";
+	public static final String PREFS_NAME_THREEG = "SeaMo.threegData";
+	static int count = 0;
+	boolean updated = false, received = false, busy = false;
+	
+	
+	static LinkedList<wifiinfo> networkList = new LinkedList<wifiinfo>();
+	static LinkedList<threeginfo> network3GList = new LinkedList<threeginfo>();
+	
+	String                   path = null;
+		
+    /** Called when the activity is first created. */
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+    	PackageManager m = getPackageManager();
+    	PackageInfo p = null;
+    	String dir = getPackageName();
+    	
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.print);
+        
+        wifiService = (WifiManager) this.getSystemService(Context.WIFI_SERVICE);
+		telService = (TelephonyManager)this.getSystemService(Context.TELEPHONY_SERVICE);
+        connectivity = (ConnectivityManager)this.getSystemService(Context.CONNECTIVITY_SERVICE);
+        
+        textStatus= (TextView)findViewById(R.id.TextStatus1);
+      
+        
+        try {
+			p = m.getPackageInfo(dir, 0);
+		} catch (NameNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		path = p.applicationInfo.dataDir;  
+             
+        startSeaMo();
+        
+    }
+    
+    
+    void startSeaMo(){
+    	/* Pre-Handoff of SeaMo which calls the scan function of Wifi and 3G once in 3 seconds. 
+    	 * Based on the current active network scan function on Wifi changes, whereas 3G remains same.
+    	 */
+    	
+    	task = new TimerTask() {
+        	public void run(){
+        		handler.post(new Runnable() {
+        			 public void run(){
+        				 activeNetwork = connectivity.getActiveNetworkInfo();
+        					if(activeNetwork != null){
+        						networkType = activeNetwork.getType();
+        						
+        						switch(networkType) {
+        				           case (ConnectivityManager.TYPE_WIFI):    scan();
+        				                                                    scan3G();
+        				                                                    break;
+        				           case (ConnectivityManager.TYPE_MOBILE) : 
+        				        	                                         while(!checkModules() && !busy){
+        				        	                                          Log.i("Seemaa", "No modules");
+        				                	                                  insertModules();
+        				                	                                  
+        				                	                                  try {
+																				Thread.sleep(1000);
+																			   } catch (InterruptedException e) {
+																				// TODO Auto-generated catch block
+																				e.printStackTrace();
+																			   }
+        				                                                    }
+        				        	   
+        				        	                                     /* USE THIS CODE WHICH HANDS-OFF AUTOMATICALLY TO WiFi (Stupid work around)*/
+        				        	   
+        				        	                                     /*  textStatus.append("Count = " + count + "\n");
+        				        	                                       if(count == 15){
+        				        	                                          wifiService.setWifiEnabled(true);
+        				        	                                          textStatus.append("Enabled \n");
+        				        	                                          Toast.makeText(getApplicationContext(), "Handing off to Wi-Fi", Toast.LENGTH_LONG).show();
+        				        	                                       }
+        				           
+        				                                                   count++;
+        				                                                  */
+                                                                                    				        	   
+        				        	                                        nativeScan();
+        				                                                    scan3G();
+        				                                                    break;
+        				           default: break;
+        				           }
+
+        					}	        				 
+        			 }  
+        		});  
+        	}//Run
+        };//TimerTask
+        
+        t.scheduleAtFixedRate(task, 0, 3000);
+        
+        /* Thread is started for the SeaMo VHO algorithm */
+        Thread thread = new Thread(new vho());
+        thread.start();
+    }
+    
+    void insertModules(){
+    	
+    	OutputStreamWriter osw = null;
+		Runtime runtime = Runtime.getRuntime();
+	    Process proc = null;
+	    String command = "sh /data/data/seamo.android/modules.sh";
+	    
+		try {
+			proc = runtime.exec("su");
+			osw = new OutputStreamWriter(proc.getOutputStream());
+	        osw.write(command);
+	        osw.flush();
+	        osw.close();
+			//System.out.println("Executed\n");
+		} catch (Exception e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+	}
+    
+    boolean checkModules(){
+		Process p;
+		String s = null;
+		
+		try {
+			p = Runtime.getRuntime().exec("lsmod");
+			BufferedReader stdInput = new BufferedReader(new 
+	                 InputStreamReader(p.getInputStream()));
+
+			while ((s = stdInput.readLine()) != null) {
+				/* dhd.ko is the wifi module for Samsung Galaxy tab (and other samsung devices, may be) */
+				
+                if(s.contains("dhd")){ 
+                	return true;
+                }
+            }
+
+		} catch (IOException e){
+			e.printStackTrace();
+		}
+		return false;
+	}
+    
+    
+    /* When active network is 3G we cannot use the WifiManager to get wifi scan results.
+     * We disable Wifi interface when we are associated to mobile network. This is done
+     * because we cannot enable Wifi interface just for scanning, it automatically connects
+     * to any available Wifi network. Hence we use native ioctl system calls for scanning. 
+     */
+    public void nativeScan(){
+		NativeLib nativeLib;
+		int sock, i, found = 0;
+		int ap_num;
+		String error = null, interface_name = "eth0";   	    
+		data nativedata = new data();
+		nativeLib = new NativeLib();
+		
+		sock = nativeLib.getSock();
+		if(sock == -1){
+	     Toast.makeText(this, "Socket error", Toast.LENGTH_SHORT).show();
+       	 return;
+        }
+		
+		
+		OutputStreamWriter osw = null;
+		Runtime runtime = Runtime.getRuntime();
+	    Process proc = null;
+	    String command = "/data/data/seamo.android/scan-only";
+	    
+	    /* Scan for wifi network natively using ioctl system call */
+		try {
+			proc = runtime.exec("su");
+			osw = new OutputStreamWriter(proc.getOutputStream());
+	        osw.write(command);
+	        osw.flush();
+	        osw.close();
+			System.out.println("Executed scan\n");
+		} catch (Exception e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		/* JNI function to get the number of APs visible */
+		
+		ap_num = nativeLib.getScanResults(sock, interface_name);                 
+        if(ap_num == -1){ 
+       	 return;
+        }
+         
+        noOfNetworks = 0;
+        for( i = 0; i < ap_num ; i++){
+        	found = 0;
+        	
+            error = nativeLib.getScanDataByIndex(i, nativedata);
+            
+            if(!error.equals("success")){
+             Toast.makeText(this, "get data:" + error, Toast.LENGTH_SHORT).show(); 
+           	 return;
+            }
+             
+                      
+            for(int k = 0; k < NetworkAdder.data.size(); k++){
+            	if((nativedata.ssid.equals(NetworkAdder.data.get(0).essid))){
+                	found = 1;
+                	break;
+                }	
+            }
+        
+            tempWifi[noOfNetworks] = new wifiinfo();
+            if(found == 1){            	
+            	    tempWifi[noOfNetworks].essid = nativedata.ssid;
+	 				tempWifi[noOfNetworks].freq = nativedata.freq;
+	 				
+	 				if(nativedata.level > 63 && nativedata.level < 256)
+					     nativedata.level = nativedata.level - 256;
+	 				tempWifi[noOfNetworks].level = nativedata.level;
+	 				noOfNetworks++;
+	 				
+            }		
+           
+			//textStatus.append("essid: " + nativedata.ssid + " rssi: " + nativedata.level + "\n");
+         }       // for loop                  
+	}
+    
+    
+    public void scan(){
+    	    	    	
+		if(wifiService.isWifiEnabled() == false){
+			wifiService.setWifiEnabled(true);  
+  		}			
+ 			
+		receiver = new BroadcastReceiver() {
+			
+			@Override
+			public void onReceive(Context context, Intent intent) {
+				List<ScanResult> results = wifiService.getScanResults();
+				noOfNetworks = 0;
+				
+		 		if(results != null){
+		 			write.lock();
+		 			try{
+		 				for(ScanResult result : results){
+		 					for(int k = 0; k < NetworkAdder.data.size(); k++){
+		 		 			    if(result.SSID.equals(NetworkAdder.data.get(k).essid)){
+		 		 			    	    tempWifi[noOfNetworks] = new wifiinfo();
+		 		 			    	    tempWifi[noOfNetworks].essid = result.SSID;
+					 		 		    tempWifi[noOfNetworks].freq = result.frequency;
+					 		 		    tempWifi[noOfNetworks].level = result.level;				 					
+					 	
+					 	    	 		noOfNetworks++;
+		 		 			    }// if condition
+		 					} //inner for loop
+		 		 		} //for loop
+		 			}//try
+		 			
+		 			finally{
+		 		     write.unlock();		
+		 			}
+		 		} //if	
+			}
+		};
+		
+		registerReceiver(receiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+		
+		wifiService.startScan();
+    }
+	
+	 public void scan3G(){ 	 
+		 
+		 PhoneStateListener      listener;
+		 apn = "3G";
+		 			
+	     final int nT = telService.getNetworkType();
+		 listener = new PhoneStateListener() {
+    		    		 
+    		 @Override
+    		 public void onSignalStrengthsChanged(SignalStrength signalStrength){ 
+    			 if(signalStrength.isGsm()){
+    				
+    				signal = signalStrength.getGsmSignalStrength();
+    				ber    = signalStrength.getGsmBitErrorRate();
+    				
+    				
+    			    if( nT == TelephonyManager.NETWORK_TYPE_UMTS  || nT == TelephonyManager.NETWORK_TYPE_HSDPA ||
+    			        nT == TelephonyManager.NETWORK_TYPE_HSPA  || nT == TelephonyManager.NETWORK_TYPE_HSUPA )
+    				{
+    			        signal = signal - 116; // dBm = ASU - 116 for UMTS
+    			        //System.out.println("UMTS");
+    			    }
+    			    else{
+    			    	signal = 2 * signal - 113; // dBm = 2 * ASU -113 for GSM
+    			    }
+    			 }
+    			 else
+    				 signal = signalStrength.getCdmaDbm();
+    			 
+    			// textStatus.append("Mobile Net" + " : " + signal + "\n");
+    			 System.out.println("mobile net"+signal);
+    	     }
+    	 };
+             
+    	 telService.listen(listener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+    	     	 
+    	 temp3g.apn = apn;
+    	 temp3g.level = signal;
+     }
+	 
+	 
+/************************************* Algorithm ***************************************/	 
+	 
+	 class vho implements Runnable{
+		 Timer                      t1 = new Timer();
+		 
+			public void run(){
+				Looper.prepare();
+				
+				handler.post(new Runnable() {
+					public void run(){ 
+			
+						task1 = new TimerTask() {
+				        	public void run(){
+				        		handler.post(new Runnable() {
+				        			 public void run(){
+				        				readData();
+				        								        				  
+				        				 try {
+											getBestNetwork();
+										} catch (InterruptedException e) {
+											// TODO Auto-generated catch block
+											e.printStackTrace();
+										}
+				        		   }//inner run
+				        		});
+				        	}//Run
+				        };//TimerTask
+
+				        t1.schedule(task1, 2000, 3000);
+					}
+				});//Handler
+			}
+		}
+	 
+	 void readData(){
+		//System.out.println("In readData: " + noOfNetworks);
+		 
+		textStatus.setText("RSSI of Networks:- \n"); 
+		 
+		read.lock();
+		
+		try{
+		 for(int j = 0; j < noOfNetworks; j++){
+						
+			for(int i = 0; i < NetworkAdder.data.size(); i++){
+				
+				if(tempWifi[j] == null) {
+					System.out.println("returning");
+					return;
+				}
+				if(NetworkAdder.data.get(i).essid.equals(tempWifi[j].essid)){
+					tempWifi[j].cost = NetworkAdder.data.get(i).cost;
+					tempWifi[j].pref = NetworkAdder.data.get(i).pref;
+				    break;
+				}
+			}
+						
+			//textStatus.setText("\nIn Thread\n");
+			
+			textStatus.append(tempWifi[j].essid + " : " + tempWifi[j].level + "\n");		
+			
+			collectData(tempWifi[j]);
+		 }
+		}
+		finally{
+			read.unlock();
+		}
+				  
+			for(int i = 0; i < NetworkAdder.data.size(); i++){
+				if(NetworkAdder.data.get(i).net == Header.MOBILE){
+					temp3g.cost = NetworkAdder.data.get(i).cost;
+					temp3g.pref = NetworkAdder.data.get(i).pref;
+				    break;
+				}
+			}
+			
+			textStatus.append("Mobile Net" + " : " + signal + "\n");
+			textStatus.append("\n");
+			
+			collect3GData(temp3g);
+	 }
+	 
+	 void collectData(wifiinfo data1){
+		 int location = 0, found = 0;
+		 Iterator<wifiinfo> iterator = networkList.iterator();	
+		 wifiinfo temp = new wifiinfo();
+		 
+		 while(iterator.hasNext()){
+			 temp = iterator.next();
+			 
+			 if(temp.essid.equals(data1.essid) && (temp.freq == data1.freq)){
+				 found = 1;
+			
+				 networkList.set(location, data1);
+				 break;
+			 }
+			 location++;
+		 }
+		 
+		 if(found == 0){
+				 networkList.addLast(data1);
+			 }  
+		 
+	 }//collectData  
+	 
+	 void collect3GData(threeginfo data1){
+		 int location = 0, found = 0;
+		 Iterator<threeginfo> iterator = network3GList.iterator();	
+		 threeginfo temp = new threeginfo();
+		 
+		 while(iterator.hasNext()){
+			 temp = iterator.next();
+			 
+			 if(temp.apn.equals(data1.apn)){
+				 found = 1;
+				 network3GList.set(location, data1);
+				 break;
+			 }
+			 location++;
+		 }
+		 
+		 if(found == 0){
+				 network3GList.addLast(data1);
+			 }  
+	 }//collect3GData
+	 	 
+	 
+	 
+	 void getBestNetwork() throws InterruptedException{
+		 int netId;
+		 
+		 float wifi_qdv = wifi.get_wifi_qdv();
+		 float threeg_qdv = threeg.get_3g_qdv();
+		 
+		 /* Truncate to 3 decimal places */
+		 DecimalFormat df = new DecimalFormat("#.###");
+		 String wqdv = df.format(wifi_qdv);
+		 String tqdv = df.format(threeg_qdv);
+		 
+		 textStatus.append("QDV of WiFi is: " + wqdv + "\n");
+		 textStatus.append("QDV of 3G is: " + tqdv + "\n");
+
+		 if(networkList.size() == 0)
+			 return;         	 
+		 
+		 if((networkType == ConnectivityManager.TYPE_MOBILE) && (wifi_qdv - threeg_qdv > 0.02)){
+			 Log.i("Seemaa", "\nHO to Wi-Fi\n");
+			 Toast.makeText(this, "Handing off to Wi-Fi", Toast.LENGTH_LONG).show();
+			 
+			 /* Before we connect to the wifi network, we have remove the wifi module
+			  * we inserted when we switched to 3G network for scanning wifi networks.
+			  */
+			 busy = true;
+			 OutputStreamWriter osw = null;
+			 Runtime runtime = Runtime.getRuntime();
+			 Process proc = null;
+			 String command = "rmmod dhd";
+			    
+			try {
+			        proc = runtime.exec("su");
+					osw = new OutputStreamWriter(proc.getOutputStream());
+			        osw.write(command);
+			        osw.flush();
+			        osw.close();
+					System.out.println("Executed rmmod\n");
+					Thread.sleep(3000);
+				} catch (Exception e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			 
+			 wifiService.setWifiEnabled(true);
+			 Log.i("SeaMo", "Handing over");
+			 
+			 /* Get the remembered list of Wifi Networks on the devices and compare it
+			  * with the essid of the network decided by the VHO. Currently HOME essid
+			  * is hard-coded. Logic to pass the essid by the function calling this function
+			  * can be written. But, once you enable the interface handover takes place.
+			  * This code is really not useful. 
+			  */
+			 List<WifiConfiguration> configurations = wifiService.getConfiguredNetworks();
+	    		
+	    		if (configurations.size() > 0) {
+	    			for(WifiConfiguration network : configurations){
+	    				if(network.SSID.regionMatches(1, "HOME", 0, "HOME".length())){
+	    					netId = network.networkId;
+	    					boolean disableAllOthers = true;
+	    					    					
+	    					Log.i("SeaMo", "Enabling WIFI");
+	    					wifiService.enableNetwork(netId, disableAllOthers); 
+	    				}
+	    			}
+	    		}
+	    		busy = false;
+	    		System.out.println("Busy disabled\n");
+	    		Thread.sleep(2000);
+		 }
+		 else if ((networkType == ConnectivityManager.TYPE_WIFI) && (threeg_qdv - wifi_qdv > 0.02)){
+			 
+			 Log.i("SeaMo", "\nHO to 3G\n");
+			 Toast.makeText(this, "Handing off to 3G", Toast.LENGTH_LONG).show();
+			 wifiService.disconnect();
+			 wifiService.setWifiEnabled(false);
+			 try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			count = 0;
+		 }
+		 else{
+			 //Toast.makeText(this, "Current", Toast.LENGTH_SHORT).show();
+			 return;
+		 }
+	 }//getBestNetwork
+	 
+	 /*protected void onPause(){
+		  super.onPause();
+		  unregisterReceiver(receiver);
+		}*/
+	 
+	 @Override 
+	 public void onDestroy(){
+		// 
+		 unregisterReceiver(receiver);
+		 super.onDestroy();
+		
+	 }
+	 
+}//class

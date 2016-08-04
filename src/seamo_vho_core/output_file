@@ -1,0 +1,59 @@
+./seamo_vho 
+modem found
+device path filled /org/freedesktop/NetworkManager/Devices/3
+modem path filled /org/freedesktop/ModemManager1/Modem/1
+device interface filled cdc-wdm0
+enable_modem
+enable_modem
+spn filled : Airtel 
+connection path filled /org/freedesktop/NetworkManager/Settings/18
+device interface filled 
+num of active conn = 1
+Airtel Not Connected
+multi_connect called with modem_num 0
+Active connection path is - /org/freedesktop/NetworkManager/ActiveConnection/5
+Getting connected... /org/freedesktop/NetworkManager/ActiveConnection/5 state : 1
+Getting connected... /org/freedesktop/NetworkManager/ActiveConnection/5 state : 1
+Getting connected... /org/freedesktop/NetworkManager/ActiveConnection/5 state : 2
+multi_connect state CONNECTED!
+modem found
+device path filled /org/freedesktop/NetworkManager/Devices/3
+modem path filled /org/freedesktop/ModemManager1/Modem/1
+device interface filled cdc-wdm0
+enable_modem
+enable_modem
+spn filled : Airtel 
+connection path filled /org/freedesktop/NetworkManager/Settings/18
+device interface filled 
+updated after connect all
+sh: 0: Can't open /usr/local/seamo/sbin/ip_rules_all.sh
+Sending Hello!
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+QDV of the 3g provider  = 0.000000
+ *****QDV of the BEST 3G provider  = 0.000000
+ QDV of WIFI: 0.000000	QDV of 3G:0.000000
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+ Ignored, dongle absent ?
+wifi avail = 1
+QDV of the 3g provider  = 0.000000
+ *****QDV of the BEST 3G provider  = 0.000000
+

@@ -1,0 +1,1 @@
+SUBSYSTEMS=="scsi" ATTRS{vendor}=="HUAWEI", OPTIONS+="ignore_device"

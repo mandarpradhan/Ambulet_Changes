@@ -1,0 +1,13 @@
+--2014-01-18 15:29:01--  http://202.141.1.54/
+Connecting to 202.141.1.54:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 102400 (100K) [text/html]
+Saving to: ‘index.html.6’
+
+     0K .......... .......... .......... .......... .......... 50%  107K 0s
+    50K .......... .......... .......... .......... ..........100%  226K 0s
+   100K                                                       100% 0.00 =0.7s
+
+2014-01-18 15:29:03 (145 KB/s) - ‘index.html.6’ SAVED!!! [102400/102400]
+
+ Throughput 145 KB/s
