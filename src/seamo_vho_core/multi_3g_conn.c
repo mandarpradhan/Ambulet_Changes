@@ -106,7 +106,7 @@ int fill_connection_details(DBusConnection * conn, int num_of_dev, char **dev_li
 
 			/*fill the spn */
 			enable_modem(conn, connection_3g[conn_idx].modem_path);
-//			spn =get_service_provider_name(conn,connection_3g[conn_idx].modem_path);
+			spn =get_service_provider_name(conn,connection_3g[conn_idx].modem_path);
 			//strcpy(connection_3g[conn_idx].spn, "Airtel");
 			strcpy(connection_3g[conn_idx].spn, spn);
 			printf("spn filled : %s \n", connection_3g[conn_idx].spn);
