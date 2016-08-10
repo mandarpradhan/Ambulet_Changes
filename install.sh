@@ -4,6 +4,7 @@
 # Create an install space under /usr/local/SeaMo and install
 # the binaries and config files
 # <seamo@ece.iisc.ernet.in>
+# <deshpandesanvi@gmail.com>
 #
 INSTALLDIR=/usr/local/seamo
 SBINDIR=$INSTALLDIR/sbin
