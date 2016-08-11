@@ -1,4 +1,4 @@
-#
+# Might require permission (sudo - edited by Chandana)
 # /* Makefile for the VHO Core packages
 # *  (c) SeaMo, version 0.1, 2011, ECE Department, IISc, Bangalore &
 # *  Department of IT, MCIT, Government of India
