@@ -1,3 +1,4 @@
+# move ip_rules_all.sh
 #! /bin/bash
 ########## ppp0 ###############
 is_iface=`ifconfig | grep ppp0 | wc -l`
