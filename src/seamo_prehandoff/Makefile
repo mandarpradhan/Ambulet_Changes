@@ -1,4 +1,4 @@
-#
+#  sudo permission might require (Edited by Chandana)
 # /* Makefile for the Pre-handoff packages
 # *  (c) SeaMo, version 0.1, 2011, ECE Department, IISc, Bangalore &
 # *  Department of IT, MCIT, Government of India
