@@ -1,3 +1,6 @@
+     #Read HOWTO_CONFIGURE_3G_DEVICE before execution (edited by Chandana)#
+ 
+     
       SeaMo+: A VHO implementation for seamless mobility across HWNs
       -------------------------------------------------------------
 
@@ -24,6 +27,7 @@ MCIT, Government of India.
       
 Authors: Seema K   <seema at eis.iisc.ernet.in>
          Anand SVR <anand at eis.iisc.ernet.in>
+         Chandana S Deshpande <deshpandesanvi@gmail.com>
       
 The code distributed along with this package comes with no warranty and
 is released under the GPLv3 License. 
