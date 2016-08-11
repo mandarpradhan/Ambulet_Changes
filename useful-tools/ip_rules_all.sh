@@ -1,4 +1,6 @@
 # move ip_rules_all.sh
+# read before execution HOWTO_CONFIGURE_3G_DEVICE
+
 #! /bin/bash
 ########## ppp0 ###############
 is_iface=`ifconfig | grep ppp0 | wc -l`
