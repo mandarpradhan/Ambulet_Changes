@@ -303,5 +303,6 @@ char* get_service_provider_name(DBusConnection * conn, char *modem_path)
 	}
 	dbus_message_unref(msg);
 	//strcpy(spn, "AIRTEL");
+	//strcpy(spn, "Idea");
 	return spn;
 }
