@@ -302,7 +302,7 @@ char* get_service_provider_name(DBusConnection * conn, char *modem_path)
 			read_spn(&args, spn);
 	}
 	dbus_message_unref(msg);
-	//strcpy(spn, "AIRTEL");
+	//strcpy(spn, "airtel");
 	//strcpy(spn, "Idea");
 	return spn;
 }
