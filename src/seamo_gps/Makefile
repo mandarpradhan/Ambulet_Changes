@@ -10,7 +10,7 @@
 # *      
 # *  Authors: Seema K   <seema at eis.iisc.ernet.in>
 # *           Anand SVR <anand at eis.iisc.ernet.in>
-	      Chandana S Deshpande <deshpandesanvi@gmail.com>
+# *	      Chandana S Deshpande <deshpandesanvi@gmail.com>
 # *
 # *  This program is free software: you can redistribute it and/or modify
 # *  it under the terms of the GNU General Public License as published by
