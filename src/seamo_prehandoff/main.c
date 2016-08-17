@@ -148,7 +148,7 @@ int main(int argc, char **argv)
 			if(!strcmp(conf[APN], "Idea")){
 				strcpy(threeg_data[Idea].apn, conf[APN]);
                                 threeg_data[Idea].cost = atoi(conf[COST]);
-                                threeg_data[BSNL].up = atoi(conf[UP]);
+                                threeg_data[Idea].up = atoi(conf[UP]);
                         	threeg_data[BSNL].polling_interval = POLLING_INTERVAL;
                         	threeg_data[BSNL].next_time = 0;
 				}
