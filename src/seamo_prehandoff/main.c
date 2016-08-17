@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 			if(!strcmp(conf[APN], "airtel")){
 				strcpy(threeg_data[airtel].apn, conf[APN]);
         	                threeg_data[airtel].cost = atoi(conf[COST]);
-	                        threeg_data[AIRTEL].up = atoi(conf[UP]);
+	                        threeg_data[airtel].up = atoi(conf[UP]);
                         	threeg_data[AIRTEL].polling_interval = POLLING_INTERVAL;
                         	threeg_data[AIRTEL].next_time = 0;
 				}
