@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 				strcpy(threeg_data[airtel].apn, conf[APN]);
         	                threeg_data[airtel].cost = atoi(conf[COST]);
 	                        threeg_data[airtel].up = atoi(conf[UP]);
-                        	threeg_data[AIRTEL].polling_interval = POLLING_INTERVAL;
+                        	threeg_data[airtel].polling_interval = POLLING_INTERVAL;
                         	threeg_data[AIRTEL].next_time = 0;
 				}
 			if(!strcmp(conf[APN], "BSNL")){
