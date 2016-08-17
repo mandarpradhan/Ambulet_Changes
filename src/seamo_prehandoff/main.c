@@ -150,7 +150,7 @@ int main(int argc, char **argv)
                                 threeg_data[Idea].cost = atoi(conf[COST]);
                                 threeg_data[Idea].up = atoi(conf[UP]);
                         	threeg_data[Idea].polling_interval = POLLING_INTERVAL;
-                        	threeg_data[BSNL].next_time = 0;
+                        	threeg_data[Idea].next_time = 0;
 				}
                     }
 	}
