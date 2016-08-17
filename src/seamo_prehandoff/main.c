@@ -146,7 +146,7 @@ int main(int argc, char **argv)
                         	threeg_data[airtel].next_time = 0;
 				}
 			if(!strcmp(conf[APN], "Idea")){
-				strcpy(threeg_data[BSNL].apn, conf[APN]);
+				strcpy(threeg_data[Idea].apn, conf[APN]);
                                 threeg_data[BSNL].cost = atoi(conf[COST]);
                                 threeg_data[BSNL].up = atoi(conf[UP]);
                         	threeg_data[BSNL].polling_interval = POLLING_INTERVAL;
