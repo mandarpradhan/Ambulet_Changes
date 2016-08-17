@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 				*ptr = '\0';
 			no_of_wifi++;
 		} else if (!strcmp(conf[0], "CONNECTION_NAME")) {
-			if(!strcmp(conf[APN], "TATA")){
+			if(!strcmp(conf[APN], "Idea")){
 				strcpy(threeg_data[TATA].apn, conf[APN]);
                        		threeg_data[TATA].cost = atoi(conf[COST]);
 				threeg_data[TATA].up = atoi(conf[UP]);
