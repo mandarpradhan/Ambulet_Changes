@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 				strcpy(threeg_data[Idea].apn, conf[APN]);
                                 threeg_data[Idea].cost = atoi(conf[COST]);
                                 threeg_data[Idea].up = atoi(conf[UP]);
-                        	threeg_data[BSNL].polling_interval = POLLING_INTERVAL;
+                        	threeg_data[Idea].polling_interval = POLLING_INTERVAL;
                         	threeg_data[BSNL].next_time = 0;
 				}
                     }
