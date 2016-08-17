@@ -1,5 +1,5 @@
 #!/bin/sh
-#
+# Check for root access
 # Install script for SeaMo Version 0.1
 # Create an install space under /usr/local/SeaMo and install
 # the binaries and config files
