@@ -48,7 +48,7 @@
 #define MAX_DEVICE 3
 #define airtel	0
 #define Idea	1
-#define TATA 	1
+#define TATA 	2
 
 struct Gdata {
      char apn[16];
