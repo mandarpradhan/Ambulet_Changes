@@ -46,7 +46,7 @@
 #define DEBUG_L1
 #define DEBUG_L2
 #define MAX_DEVICE 3
-#define AIRTEL	0
+#define airtel	0
 #define TATA 	1
 #define BSNL	2
 
