@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 				*ptr = '\0';
 			no_of_wifi++;
 		} else if (!strcmp(conf[0], "CONNECTION_NAME")) {
-			if(!strcmp(conf[APN], "Idea")){
+			if(!strcmp(conf[APN], "TATA")){
 				strcpy(threeg_data[TATA].apn, conf[APN]);
                        		threeg_data[TATA].cost = atoi(conf[COST]);
 				threeg_data[TATA].up = atoi(conf[UP]);
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
                         	threeg_data[airtel].polling_interval = POLLING_INTERVAL;
                         	threeg_data[airtel].next_time = 0;
 				}
-			if(!strcmp(conf[APN], "BSNL")){
+			if(!strcmp(conf[APN], "Idea")){
 				strcpy(threeg_data[BSNL].apn, conf[APN]);
                                 threeg_data[BSNL].cost = atoi(conf[COST]);
                                 threeg_data[BSNL].up = atoi(conf[UP]);
