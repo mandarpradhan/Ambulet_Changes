@@ -47,6 +47,7 @@
 #define DEBUG_L2
 #define MAX_DEVICE 3
 #define airtel	0
+#define Idea	1
 #define TATA 	1
 
 struct Gdata {
