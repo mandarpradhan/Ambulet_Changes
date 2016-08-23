@@ -56,7 +56,6 @@ int main(int argc, char **argv)
 	char conf[10][30], *line = malloc(100), *ptr;
 	DBusConnection *conn;
         int c;
-     
        while (1)
          {
            static struct option long_options[] =
@@ -69,7 +68,7 @@ int main(int argc, char **argv)
      
            c = getopt_long (argc, argv, "a",
                             long_options, &option_index);
-     
+           printf("\nc=%d\n",c);     
            /* Detect the end of the options. */
            if (c == -1)
              break;
@@ -133,6 +132,7 @@ int main(int argc, char **argv)
 		} else if (!strcmp(conf[0], "CONNECTION_NAME")) {
 			if(!strcmp(conf[APN], "TATA")){
 				strcpy(threeg_data[TATA].apn, conf[APN]);
+
                        		threeg_data[TATA].cost = atoi(conf[COST]);
 				threeg_data[TATA].up = atoi(conf[UP]);
                         	threeg_data[TATA].polling_interval = POLLING_INTERVAL;

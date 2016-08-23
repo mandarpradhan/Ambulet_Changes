@@ -41,8 +41,7 @@ void connect_all_modems(DBusConnection * conn){
 
         num_of_dev = get_device_list(conn, dev_list);
         num_of_modems = fill_connection_details(conn, num_of_dev, dev_list);
- 
-
+	printf("There are %d devices and %d modems\n",num_of_dev,num_of_modems);
 	for(i=0;i<num_of_modems;i++){
 		if(!is_connected_3g(conn, connection_3g[i].spn )){
 		   prefer_3g(conn,connection_3g[i].modem_path);
@@ -116,20 +115,22 @@ int fill_connection_details(DBusConnection * conn, int num_of_dev, char **dev_li
 			    get_device_properties_array(conn, dev_list[i],
 							"AvailableConnections",
 							connection_paths);
-//                      printf("num of con : %d\n",num_of_con);
+                      printf("num of con : %d\n",num_of_con);
 			for (j = 0; j < num_of_con; j++) {
-//                              printf("connection paths : %s\n",connection_paths[j]);
+                              printf("connection paths : %s\n",connection_paths[j]);
 				get_connection_apn(conn, connection_paths[j],
 						   conn_apn);
-//                              printf("connection apn : %s\n",conn_apn);
+                              printf("connection apn : %s\n",conn_apn);
 				apn_comp =
 				    strncasecmp(conn_apn, &connection_3g[conn_idx].spn,
 						4);
-				if (apn_comp == 0) {
+				printf("apn_comp=%d\n",apn_comp);
+			 	printf("conn_apn=%s\nconnection_3g[conn_idx].spn=%s\n",conn_apn,&connection_3g[conn_idx].spn);
+			//	if (apn_comp == 0) {
 					strcpy(connection_3g[conn_idx].connection_path, connection_paths[j]);
 					printf("connection path filled %s\n",
 					       connection_3g[conn_idx].connection_path);
-				}
+			//	}
 			}
 			/*fill the ipinterface */
 			get_device_properties_string(conn, dev_list[i],
@@ -152,7 +153,7 @@ char* fetch_interface(DBusConnection * conn, char* provider_apn){
  
     num_of_modems = get_num_of_modems(conn);
 
-//    printf ("fetch_interface : %d\n", num_of_modems);
+    printf ("fetch_interface : %d\n", num_of_modems);
 
     for(i=0;i < num_of_modems;i++){
  
@@ -178,9 +179,7 @@ int multi_connect(DBusConnection * conn, int modem_num)
         int conn_state;
         char active_conn [64];
         int try_count = 0, found_active_conn_path;
-
-        printf ("multi_connect called with modem_num %d\n", modem_num);
-
+        printf ("multi_connect called with modem_num = %d\n", modem_num);
         msg = dbus_message_new_method_call("org.freedesktop.NetworkManager",
                                            "/org/freedesktop/NetworkManager",
                                            "org.freedesktop.NetworkManager",
@@ -189,7 +188,7 @@ int multi_connect(DBusConnection * conn, int modem_num)
                 syslog(LOG_ERR, "Message Null\n");
                 exit(1);
         }
-
+        printf("The connection path is %s\n The device path is %s \n",connection_3g[modem_num].connection_path,connection_3g[modem_num].device_path);
         if (!dbus_message_append_args(msg,
                                       DBUS_TYPE_OBJECT_PATH, &connection_3g[modem_num].connection_path,
                                       DBUS_TYPE_OBJECT_PATH, &connection_3g[modem_num].device_path,
@@ -198,12 +197,10 @@ int multi_connect(DBusConnection * conn, int modem_num)
                 syslog(LOG_ERR, "Out Of Memory!\n");
                 exit(1);
         }
-	
         if (!dbus_connection_send_with_reply(conn, msg, &pending, -1)) {
                 syslog(LOG_ERR, "Out Of Memory!\n");
                 exit(1);
         }
-        dbus_connection_flush(conn);
         dbus_message_unref(msg);
         dbus_pending_call_block(pending);
         msg = dbus_pending_call_steal_reply(pending);
@@ -363,6 +360,7 @@ int is_connected_3g( DBusConnection * conn, char* spn ){
 		active_conn_path = get_active_conn_path(conn,active_connections[i]);
 		get_connection_apn(conn, active_conn_path, conn_apn);
 		apn_comp = strncasecmp(conn_apn, spn, 4);
+		printf("apn_comp = %d \n",apn_comp);
 		if(apn_comp == 0){
 			printf("%s Connected\n",spn);
 			return(1);

@@ -58,27 +58,24 @@ void prefer_3g(DBusConnection * conn, char* modem_path)
 	DBusMessage *msg;
 	DBusPendingCall *pending;
 	int prefer = PREFER_3G;
-
+        printf("the modem path is %s\n",modem_path);
 	/* Send a D-Bus command to set preferred mode */
 
 	msg = dbus_message_new_method_call("org.freedesktop.ModemManager1",	/* Destination */
 					    modem_path,	/*"/org/freedesktop/ModemManager1/Modems/0",	 Object Path */
-					   "org.freedesktop.ModemManager1.Modem.Gsm.Network",	/*This Interface is not available for latest version of ModemManager */
-					   "SetAllowedMode");	/* Method */
+					   "org.freedesktop.ModemManager1.Modem",	/*This Interface is not available for latest version of ModemManager */
+					   "SetCurrentModes");	/* Method */
 	if (NULL == msg) {
 		syslog(LOG_ERR, "Message Null\n");
 		syslog(LOG_ERR, "Message Null prefer_3g\n");
 		exit(1);
 	}
-
 	/* Append the arguments required by the D-Bus send command */
-
 	if (!dbus_message_append_args(msg, DBUS_TYPE_UINT32, &prefer,
 				      DBUS_TYPE_INVALID)) {
 		syslog(LOG_ERR, "Out Of Memory!\n");
 		exit(1);
 	}
-
 	if (!dbus_connection_send_with_reply(conn, msg, &pending, -1)) {
 		syslog(LOG_ERR, "Out Of Memory!\n");
 		exit(1);

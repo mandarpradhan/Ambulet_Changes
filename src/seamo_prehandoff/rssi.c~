@@ -93,10 +93,10 @@ int get_rssi(DBusConnection * conn, float level[])
 		level[TATA] = rssi_dbm;
 		}
 	if(strncmp(service_provider , "airtel",6) == 0){
-                level[airtel] = rssi_dbm;
+                level[AIRTEL] = rssi_dbm;
 		}
 	if(strncmp(service_provider , "Idea",11) == 0){
-                level[Idea] = rssi_dbm;
+                level[BSNL] = rssi_dbm;
 		}
 
 

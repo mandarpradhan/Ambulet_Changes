@@ -113,7 +113,7 @@ int main()
 	openlog("SeaMo:VHO", LOG_PID, LOG_DAEMON);
 
 	/* Obtain a D-Bus connection handler for all D-Bus activities */
-	conn = get_connection();
+	conn = (DBusConnection *) get_connection();
 
         init_3g_connections();
 	/* socket creation for communication with vrms. (earlier this was 
@@ -160,9 +160,10 @@ int main()
 
 	while (1) {
 		wifi_avail = wifi_param();
+
       	
                 num_of_3g = get_num_of_modems(conn);
-          		num_of_3g = 1;
+          
                 if ( num_of_3g >=1){
                	threeg_avail = threeg_param();
                 }
@@ -171,7 +172,7 @@ int main()
                    threeg_avail == -1 ;
                    }
 
-		printf("wifi_avail:%d num_of_3g:%d threeg_avail:%d",wifi_avail,num_of_3g,threeg_avail); 
+
 
 		syslog(LOG_INFO, "wifi_avail: %d, threeg_avail: %d\n",
 		       wifi_avail, threeg_avail);
